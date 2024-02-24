@@ -1,0 +1,39 @@
+generator client {
+  provider             = "prisma-client-py"
+  recursive_type_depth = "5"
+  interface            = "asyncio"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./rin.sqlite"
+}
+
+model User {
+  id           Int    @id @default(autoincrement())
+  name         String
+  email        String @unique
+  access_level Int    @default(1)
+  bio_hash     String
+}
+
+model RuralProperty {
+  id           Int    @id @default(autoincrement())
+  name         String
+  access_level Int    @default(3)
+}
+
+model Agrotoxic {
+  id                 Int    @id @default(autoincrement())
+  name               String
+  environment_impact String @default("BAIXO")
+  access_level       Int    @default(3)
+  stock              Stock?
+}
+
+model Stock {
+  id           Int       @id @default(autoincrement())
+  agrotoxic_id Int       @unique
+  access_level Int       @default(2)
+  agrotoxic    Agrotoxic @relation(fields: [agrotoxic_id], references: [id])
+}
