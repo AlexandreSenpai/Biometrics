@@ -1,1 +1,7 @@
 prisma
+fastapi
+python-multipart
+imagehash
+uvicorn[standard]
+pyJWT
+opencv-python

@@ -1,11 +1,14 @@
 from contextlib import asynccontextmanager
 import typing
-from fastapi import FastAPI, File, Form, Response, UploadFile, status, HTTPException
+from fastapi import FastAPI, File, Form, Request, Response, UploadFile, status, HTTPException
+from starlette.middleware.authentication import AuthenticationMiddleware 
 from prisma import Prisma
 import imagehash
-from rin.generators.jwt import UserJWT, generate_jwt
+from rin.generators.jwt import BearerTokenAuthBackend, UserJWT, generate_jwt
 
 from rin.processors.image import process_image
+
+db = Prisma()
 
 @asynccontextmanager
 async def lifespan(server: FastAPI):
@@ -13,9 +16,9 @@ async def lifespan(server: FastAPI):
     yield
     await db.disconnect()
 
-server = FastAPI(lifespan=lifespan)
+server = FastAPI(lifespan=lifespan) # type: ignore
 
-db = Prisma()
+server.add_middleware(AuthenticationMiddleware, backend=BearerTokenAuthBackend())
 
 @server.post('/register')
 async def register(name: typing.Annotated[str, Form()],
@@ -31,7 +34,7 @@ async def register(name: typing.Annotated[str, Form()],
         'name': name,
         'email': email,
         'bio_hash': str(bio_hash) 
-    })    
+    })
 
     response.status_code = status.HTTP_201_CREATED
     return user.model_dump()
@@ -54,15 +57,45 @@ async def login(email: typing.Annotated[str, Form()],
     stored_hash = stored_user.bio_hash
     restored_hash = imagehash.hex_to_hash(stored_hash)
 
+    print(restored_hash - new_hash)
+    print(restored_hash == new_hash)
+
     if restored_hash - new_hash <= 20:
         
         user = UserJWT(name=stored_user.name,
                        email=stored_user.email,
                        access_level=stored_user.access_level)
         
-        response.set_cookie('RIN_TOKEN', generate_jwt(user))
+        response.set_cookie('RIN_TOKEN', await generate_jwt(user))
         return { 'authenticated': True }
     
     response.status_code = status.HTTP_401_UNAUTHORIZED
     return { 'authenticated': False }
 
+@server.get('/stock')
+async def stock(request: Request):
+    stock = await db.stock.find_many()
+
+    return list(filter(lambda x: x.access_level <= request.user.access_level, stock))
+
+@server.get('/agrotoxic')
+async def agrotoxic(request: Request):
+    agrotoxic = await db.agrotoxic.find_many(include={ 'stock': True })
+    
+    return list(filter(lambda x: x.access_level <= request.user.access_level, agrotoxic))
+
+@server.get('/ruralProperties')
+async def rural_properties(request: Request):
+    properties = await db.ruralproperty.find_many(include={ 
+        'agrotoxics': { 
+            'include': { 
+                'agrotoxic': {
+                    'include': {
+                        'stock': True
+                    }
+                }
+            }
+        }
+    })
+
+    return list(filter(lambda x: x.access_level <= request.user.access_level, properties))

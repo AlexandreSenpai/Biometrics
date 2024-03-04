@@ -1,7 +1,7 @@
 generator client {
   provider             = "prisma-client-py"
-  recursive_type_depth = "5"
   interface            = "asyncio"
+  recursive_type_depth = "5"
 }
 
 datasource db {
@@ -18,9 +18,10 @@ model User {
 }
 
 model RuralProperty {
-  id           Int    @id @default(autoincrement())
-  name         String
-  access_level Int    @default(3)
+  id            Int    @id @default(autoincrement())
+  name          String
+  access_level  Int    @default(3)
+  agrotoxics      RuralPropertyAgrotoxic[] @relation("RuralPropertyToAgrotoxic") 
 }
 
 model Agrotoxic {
@@ -29,11 +30,23 @@ model Agrotoxic {
   environment_impact String @default("BAIXO")
   access_level       Int    @default(3)
   stock              Stock?
+  rural_properties   RuralPropertyAgrotoxic[] @relation("RuralPropertyToAgrotoxic") 
+}
+
+model RuralPropertyAgrotoxic {
+  id                 Int       @id @default(autoincrement())
+  rural_property     RuralProperty @relation("RuralPropertyToAgrotoxic", fields: [rural_property_id], references: [id], onDelete: Cascade)
+  agrotoxic          Agrotoxic @relation("RuralPropertyToAgrotoxic", fields: [agrotoxic_id], references: [id], onDelete: Cascade) 
+  rural_property_id  Int
+  agrotoxic_id       Int
+
+  @@unique([rural_property_id, agrotoxic_id])
 }
 
 model Stock {
   id           Int       @id @default(autoincrement())
   agrotoxic_id Int       @unique
+  quantity     Int       @default(0)
   access_level Int       @default(2)
   agrotoxic    Agrotoxic @relation(fields: [agrotoxic_id], references: [id])
 }

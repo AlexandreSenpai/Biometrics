@@ -1,1 +1,1 @@
-uvicorn main:server --reload
+uvicorn main:server --reload --lifespan on
